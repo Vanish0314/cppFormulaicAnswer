@@ -1,7 +1,7 @@
 <!--
  * @Author: Vanish
  * @Date: 2024-10-19 10:51:44
- * @LastEditTime: 2024-10-21 19:30:11
+ * @LastEditTime: 2024-10-22 17:34:04
  * Also View: http://vanishing.cc
  * Copyright@ https://creativecommons.org/licenses/by/4.0/deed.zh-hans
 -->
@@ -136,3 +136,113 @@ C++内存区域:
 - 并发性: 进程切换效率低,线程切换效率高
 
 
+<!-- TODO: 这一节还不算完善 -->
+# 6.左值,右值,移动语义
+
+## 答案
+
+- 左值有地址,右值没地址.
+- 右值引用是为了支持移动操作而引出的一个概念,它只能绑定到一个将要销毁的对象,使用右值引用的移动操作可以避免无谓的拷贝,提高性能。使用std::move()函数可以将一个左值转换为右值引用.
+- 移动构造函数需要传递的参数是一个右值引用，移动构造函数不分配新内存，而是接管传递而来对象的内存，并在移动之后把源对象销毁；拷贝构造函数需要传递一个左值引用，可能会造成重新分配内存，性能更低
+
+## 左值和右值的定义
+
+- 左值有地址,右值没地址
+- 左值能读能写,右值只读不写
+```cpp
+int GetRVal()
+{
+  return 10;//返回一个右值
+}
+
+int& GetLVal()
+{
+  static int a = 10; //左值必须有地址
+  return a;
+}
+
+void SetValueR(int value){}
+void SetValueL(int& value){}
+
+void PrintName(string& name){}
+void PrintNameR(string&& name){}//两个& 表示接受一个右值引用
+
+int main()
+{
+  int i = 10;
+  10 = i; //错误的: 10是右值没有地址,所以不能赋值  
+
+  int a = GetRVal();
+  GetRVal() = 5; //错误的: 右值不能被赋值
+
+  GetLVal() = 5; //正确的: 左值可以被赋值
+
+  SetValueR(i); 
+  SetValueR(10);
+  SetValueL(i);
+  SetValueL(10); // 错误的
+
+  int& value = 10; // 错误的: 右值没有地址,不能绑定到左值引用
+  const int& value2 = 10; // 正确的: 右值没有地址,但是可以绑定到常量左值引用(编译器支持)
+
+  string firstName = "QC"
+  string lastName = "X"; 
+  string fullName = firstName + lastName;
+
+  PrintName(fullName);
+  PrintName(firstName + lastName); // 错误的: +会生成一个临时变量(右值)
+  PrintNameR(fullName); // 错误的: 左值不能传递给右值引用
+  PrintNameR(firstName + lastName); // 正确的: 右值可以传递给右值引用
+}
+
+```
+
+## 移动语义
+
+为什么要移动语义:
+- 减少复制开销
+
+
+## 三/五法则
+
+如果特殊定义了以下任何一个函数:
+- 析构函数
+- 拷贝构造函数
+- 拷贝赋值运算符
+- 移动构造函数
+- 移动赋值运算符
+
+那么你应该定义所有五个函数.
+
+## 万能引用
+
+模板中的&&表示万能引用,可以绑定任意类型的左值或右值.例如:
+```cpp
+template<typename T>
+void func(T&& param){//万能引用
+
+int main()
+{
+  int a = 10;
+
+  func(a);
+  func(10);
+  func(std::move(a));
+}
+```
+
+## 引用折叠
+
+<Effective Modern C++> 书中提到:
+- 所有的引用折叠最终都代表一个引用,要么是左值引用,要么是右值引用.
+
+规则是:
+- 有任意一个引用是左值引用,则折叠结果是左值引用.
+
+## 完美转发
+
+```cpp
+template<typename T>void func(T&t){cout<<"左值引l用"<<endl;}
+template<typename T>void func(T &&t){cout<<"右值引l用"<<endl;}
+template<typename T>void func1(T &&t){ func(forward<T>(t));}
+```
