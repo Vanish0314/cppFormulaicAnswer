@@ -1,7 +1,7 @@
 <!--
  * @Author: Vanish
  * @Date: 2024-10-19 10:51:44
- * @LastEditTime: 2024-10-24 19:02:43
+ * @LastEditTime: 2024-11-12 20:17:34
  * Also View: http://vanishing.cc
  * Copyright@ https://creativecommons.org/licenses/by/4.0/deed.zh-hans
 -->
@@ -282,6 +282,11 @@ RAII(Resource Acquisition Is Initialization)是一种编程思想,它认为资�
 - unique_ptr: 独占指针,只能有一个指针指向资源,当指针被销毁时,资源被释放.
 - weak_ptr: 弱指针,指向shared_ptr管理的资源,但是不影响shared_ptr的引用计数.
 
+## weak_ptr作用
+
+- 表面上:防止循环引用
+- 深层次:weak_ptr持有者不应该对对象的生命周期有影响.
+
 ## 智能指针的使用
 
 除非需要手动管理内存,否则应该尽量使用智能指针.
@@ -336,11 +341,74 @@ RAII(Resource Acquisition Is Initialization)是一种编程思想,它认为资�
 
 ![C++11新特性](C++11新特性.km)
 
-# 11.C++中function ,lamba,bind的关系
+# 11.C++中function ,lambda,bind的关系
 
 ## 答案
 
+- function是一个模板类,用于封装可调用对象,可以作为函数参数,返回值
+- lambda:是匿名函数,即没有名字的函数
+- bind: 函数适配器,可以将一个函数和参数绑定,生成一个新的函数对象.
+
+## 区别
+
+- function: 模板类
+- lambda: 匿名函数
+- bind: 函数适配器
+
 ## std::function
 
-1. function是C++11中新增的模板类,用来封装可调用对象(函数、函数指针、成员函数指针、lambda表达式)
-2. function可以保存函数对象,可以作为函数参数,可以作为函数返回值,可以作为容器元素
+由于C++中可调用对象太多,比如函数、函数指针、成员函数指针、lambda表达式等,因此C++11中引入了std::function模板类,用来封装函数对象.
+
+1. function是C++11中新增的模板类,用来封装可调用对象
+2. function抽象了函数参数,函数返回值
+
+示例
+```cpp
+function<void(int,int)> sum = [](int x, int y) -> void { return x + y; };
+```
+
+原理:
+1. 动态绑定
+
+## lambda表达式
+
+lambda是一个方便创建匿名函数的语法糖
+
+示例:
+```cpp
+auto f = [](int x, int y) -> void { return x + y; };
+```
+
+构成:
+- [] 捕获列表: 捕获外部作用域的变量
+  - 值捕获: [outVal] 按值捕获, 只读不写.可使用mutable修饰符在闭包内修改变量.
+  - 引用捕获: [&outVal] 按引用捕获, 捕获外部作用域的变量, 按引用传递给lambda函数
+- () 参数列表: 声明函数参数
+- -> 返回类型: 声明函数返回值类型,可省略,因为有类型推导.
+- {} 函数体: 定义函数体
+
+## std::bind
+
+通过绑定函数以及函数参数的方式生成闭包.
+
+示例:
+```cpp
+int add(int x, int y) { return x + y; }
+
+auto f = bind(&add, 1, 2);
+cout<<f()<<endl// 3
+auto g = bind(&add, 1, placeholders::_1);
+cout<<g(1)<<endl// 2
+```
+
+
+
+# 12.虚析构函数作用
+
+## 答案
+
+为了使子类析构函数能够正常调用,需要将基类设置为虚析构函数.
+
+## 原理
+
+如果非虚析构函数,子类对象赋值给基类指针,调用析构函数时,子类对象析构函数得不到调用.
